@@ -81,7 +81,11 @@
 
 @section Scripts {
     <script>
-        const tplApi = '/api/template';
+        const tplApi       = '/api/template';
+        const secModalEl    = document.getElementById('secModal');
+        const secModal      = new bootstrap.Modal(secModalEl);
+        const assnModalEl   = document.getElementById('assnModal');
+        const assnModal     = new bootstrap.Modal(assnModalEl);
         let currentTemplateId = null;
 
         async function loadTemplatesToSelect() {
@@ -92,7 +96,7 @@
                 res.data.forEach(t => {
                     sel.innerHTML += `<option value="${t.id}">${t.name}</option>`;
                 });
-            } catch (err) {
+            } catch(err) {
                 console.error("loadTemplatesToSelect failed:", err);
             }
         }
@@ -118,48 +122,57 @@
                       </td>`;
                     tbody.appendChild(tr);
                 }
-            } catch (err) {
+            } catch(err) {
                 console.error("loadSections failed:", err);
             }
         }
 
+        // on template change
         document.getElementById('selTemplate').addEventListener('change', e => {
             currentTemplateId = e.target.value;
             loadSections();
         });
 
+        // New section
         document.getElementById('btnAddSec').addEventListener('click', () => {
             if (!currentTemplateId) return alert('Choose a template first');
-            document.getElementById('secId').value = '';
-            document.getElementById('secName').value = '';
+            document.getElementById('secId').value    = '';
+            document.getElementById('secName').value  = '';
             document.getElementById('secOrder').value = '0';
-            new bootstrap.Modal(document.getElementById('secModal')).show();
+            secModal.show();
         });
 
+        // Table actions
         document.querySelector('#secTable').addEventListener('click', async ev => {
             const id = ev.target.dataset.id;
+
+            // DELETE
             if (ev.target.matches('.del-sec')) {
-                if (confirm('Delete this section?')) {
-                    await axios.delete(`${tplApi}/${currentTemplateId}/sections/${id}`);
-                    loadSections();
-                }
+                if (!confirm('Delete this section?')) return;
+                await axios.delete(`${tplApi}/sections/${id}`);
+                return loadSections();
             }
+
+            // EDIT
             if (ev.target.matches('.edit-sec')) {
-                const sec = (await axios.get(`${tplApi}/${currentTemplateId}/sections`))
-                              .data.find(x => x.id == id);
-                document.getElementById('secId').value = sec.id;
-                document.getElementById('secName').value = sec.name;
+                const all = (await axios.get(`${tplApi}/${currentTemplateId}/sections`)).data;
+                const sec = all.find(x=>x.id==id);
+                document.getElementById('secId').value    = sec.id;
+                document.getElementById('secName').value  = sec.name;
                 document.getElementById('secOrder').value = sec.order;
-                new bootstrap.Modal(document.getElementById('secModal')).show();
+                return secModal.show();
             }
+
+            // ASSIGN
             if (ev.target.matches('.add-assn')) {
                 document.getElementById('assnSecId').value = id;
                 document.getElementById('assnPrinter').value = '';
                 document.getElementById('assnPaperSize').value = '';
-                new bootstrap.Modal(document.getElementById('assnModal')).show();
+                return assnModal.show();
             }
         });
 
+        // SAVE section
         document.getElementById('secForm').addEventListener('submit', async ev => {
             ev.preventDefault();
             const id   = document.getElementById('secId').value;
@@ -168,17 +181,19 @@
                 order: +document.getElementById('secOrder').value
             };
             try {
-                if (id)
-                    await axios.put(`${tplApi}/${currentTemplateId}/sections/${id}`, body);
-                else
+                if (id) {
+                    await axios.put(`${tplApi}/sections/${id}`, body);
+                } else {
                     await axios.post(`${tplApi}/${currentTemplateId}/sections`, body);
-                new bootstrap.Modal(document.getElementById('secModal')).hide();
+                }
+                secModal.hide();
                 loadSections();
-            } catch (err) {
+            } catch(err) {
                 console.error("save section failed:", err);
             }
         });
 
+        // SAVE assignment
         document.getElementById('assnForm').addEventListener('submit', async ev => {
             ev.preventDefault();
             const sectionId = document.getElementById('assnSecId').value;
@@ -187,15 +202,15 @@
                 paperSize:   document.getElementById('assnPaperSize').value
             };
             try {
-                await axios.post(`${tplApi}/${currentTemplateId}/sections/${sectionId}/assignments`, body);
-                new bootstrap.Modal(document.getElementById('assnModal')).hide();
+                await axios.post(`${tplApi}/sections/${sectionId}/assignments`, body);
+                assnModal.hide();
                 loadSections();
-            } catch (err) {
+            } catch(err) {
                 console.error("save assignment failed:", err);
             }
         });
 
-        // initial
+        // initial load
         loadTemplatesToSelect();
     </script>
 }

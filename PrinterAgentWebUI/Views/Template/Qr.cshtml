@@ -15,20 +15,17 @@
         document.getElementById('btnFetchQr').addEventListener('click', async () => {
             const id = document.getElementById('invoiceId').value;
             if (!id) return alert('Enter invoice ID');
-
             try {
-                // πρώτα δοκιμάζουμε να πάρουμε υπάρχον QR
                 let resp = await axios.get(`/api/template/invoiceqr/${id}`);
-                let qr = resp.data;
+                let qr   = resp.data;
                 if (!qr) {
-                    // αν δεν υπάρχει, δημιουργούμε νέο
                     resp = await axios.post('/api/template/invoiceqr', { invoiceId: +id, url: '' });
-                    qr = resp.data;
+                    qr   = resp.data;
                 }
                 document.getElementById('qrResult').innerHTML =
                     `<p>QR URL: <a href="${qr.url}" target="_blank">${qr.url}</a></p>
                      <img src="${qr.url}" alt="QR Code" class="img-fluid" />`;
-            } catch (err) {
+            } catch(err) {
                 console.error("fetch/create InvoiceQR failed:", err);
                 alert("Error fetching or creating QR. See console.");
             }

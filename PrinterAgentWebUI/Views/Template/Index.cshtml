@@ -57,6 +57,8 @@
 @section Scripts {
     <script>
         const apiBase = '/api/template';
+        const tplModalEl = document.getElementById('tplModal');
+        const tplModal   = new bootstrap.Modal(tplModalEl);
 
         function loadTemplates() {
             axios.get(apiBase)
@@ -78,53 +80,52 @@
                         tbody.appendChild(tr);
                     });
                 })
-                .catch(err => {
-                    console.error("loadTemplates failed:", err);
-                });
+                .catch(err => console.error("loadTemplates failed:", err));
         }
 
         function showModal(template = {}) {
-            document.getElementById('tplId').value = template.id || '';
-            document.getElementById('tplName').value = template.name || '';
-            document.getElementById('tplFileName').value = template.fileName || '';
+            document.getElementById('tplId').value         = template.id || '';
+            document.getElementById('tplName').value       = template.name || '';
+            document.getElementById('tplFileName').value   = template.fileName || '';
             document.getElementById('tplDataSource').value = template.dataSourceType || '';
-            new bootstrap.Modal(document.getElementById('tplModal')).show();
+            tplModal.show();
         }
 
-        // events
+        // New Template
         document.getElementById('btnAddTpl').addEventListener('click', () => showModal());
 
+        // Edit / Delete handlers
         document.querySelector('#tplTable').addEventListener('click', ev => {
+            const id = ev.target.dataset.id;
             if (ev.target.matches('.edit')) {
-                const id = ev.target.dataset.id;
                 axios.get(`${apiBase}/${id}`)
-                    .then(res => showModal(res.data))
-                    .catch(err => console.error("Get template failed:", err));
+                     .then(res => showModal(res.data))
+                     .catch(err => console.error("Get template failed:", err));
             }
             if (ev.target.matches('.del')) {
-                const id = ev.target.dataset.id;
-                if (confirm('Delete this template?')) {
-                    axios.delete(`${apiBase}/${id}`)
-                        .then(loadTemplates)
-                        .catch(err => console.error("Delete template failed:", err));
-                }
+                if (!confirm('Delete this template?')) return;
+                axios.delete(`${apiBase}/${id}`)
+                     .then(loadTemplates)
+                     .catch(err => console.error("Delete template failed:", err));
             }
         });
 
+        // Save (create/update)
         document.getElementById('tplForm').addEventListener('submit', ev => {
             ev.preventDefault();
             const id  = document.getElementById('tplId').value;
             const obj = {
-                name: document.getElementById('tplName').value,
-                fileName: document.getElementById('tplFileName').value,
+                name:           document.getElementById('tplName').value,
+                fileName:       document.getElementById('tplFileName').value,
                 dataSourceType: document.getElementById('tplDataSource').value
             };
             const req = id
                 ? axios.put(`${apiBase}/${id}`, obj)
                 : axios.post(apiBase, obj);
-            req
-                .then(() => {
-                    new bootstrap.Modal(document.getElementById('tplModal')).hide();
+
+            req.then(() => {
+                    // κλείσιμο *ίδιου* modal instance
+                    tplModal.hide();
                     loadTemplates();
                 })
                 .catch(err => console.error("Save template failed:", err));
@@ -134,3 +135,4 @@
         loadTemplates();
     </script>
 }
+

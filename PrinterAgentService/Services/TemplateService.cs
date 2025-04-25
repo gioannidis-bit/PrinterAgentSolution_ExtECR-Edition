@@ -39,19 +39,50 @@ namespace PrinterAgentService.Services
 
         public async Task UpdateTemplateAsync(PrintTemplate template)
         {
-            _ctx.PrintTemplates.Update(template);
+            // 1) Φόρτωσε την υπάρχουσα εγγραφή από τη βάση:
+            var existing = await _ctx.PrintTemplates.FindAsync(template.Id);
+            if (existing == null)
+                return;
+
+            // 2) Ενημέρωσε ΜΟΝΟ τα επιτρεπόμενα πεδία:
+            existing.Name = template.Name;
+            existing.FileName = template.FileName;
+            existing.DataSourceType = template.DataSourceType;
+            // **ΜΗΝ ΑΓΓΙΖΕΙΣ** το existing.CreatedAt
+
+            // 3) Αποθήκευσε τις αλλαγές
             await _ctx.SaveChangesAsync();
         }
 
-        public async Task DeleteTemplateAsync(int id)
+
+        public async Task DeleteTemplateAsync(int templateId)
         {
-            var tpl = await _ctx.PrintTemplates.FindAsync(id);
-            if (tpl != null)
+            // 1) Φόρτωσε όλες τις sections αυτού του template
+            var sections = await _ctx.TemplateSections
+                                     .Where(s => s.PrintTemplateId == templateId)
+                                     .ToListAsync();
+
+            // 2) Για κάθε section, διέγραψε πρώτα τα assignments
+            foreach (var sec in sections)
             {
-                _ctx.PrintTemplates.Remove(tpl);
-                await _ctx.SaveChangesAsync();
+                var assigns = await _ctx.PrinterAssignments
+                                        .Where(a => a.TemplateSectionId == sec.Id)
+                                        .ToListAsync();
+                _ctx.PrinterAssignments.RemoveRange(assigns);
             }
+
+            // 3) Διέγραψε τις sections
+            _ctx.TemplateSections.RemoveRange(sections);
+
+            // 4) Τέλος, διέγραψε το ίδιο το printTemplate
+            var tpl = await _ctx.PrintTemplates.FindAsync(templateId);
+            if (tpl != null)
+                _ctx.PrintTemplates.Remove(tpl);
+
+            // 5) Αποθήκευση
+            await _ctx.SaveChangesAsync();
         }
+
 
         // —— Sections ——
         public async Task<IEnumerable<TemplateSection>> GetSectionsAsync(int templateId)
@@ -70,7 +101,11 @@ namespace PrinterAgentService.Services
 
         public async Task UpdateSectionAsync(TemplateSection section)
         {
-            _ctx.TemplateSections.Update(section);
+            var existing = await _ctx.TemplateSections.FindAsync(section.Id);
+            if (existing == null) throw new KeyNotFoundException($"Section {section.Id} not found");
+            existing.Name = section.Name;
+            existing.Order = section.Order;
+            // **ΔΕΝ** αγγίζεις εδώ το existing.PrintTemplateId
             await _ctx.SaveChangesAsync();
         }
 
