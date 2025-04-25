@@ -2,6 +2,8 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PrinterAgent.Core;
+using PrinterAgent.Core.Data;
+using PrinterAgent.Core.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,6 +19,7 @@ namespace PrinterAgentService
     public class Worker : BackgroundService
     {
         private readonly ILogger<Worker> _logger;
+        private readonly IServiceProvider _services;
         private HubConnection _hub;
         private int _reconnectAttempts = 0;
         private const int MAX_RECONNECT_ATTEMPTS = 10;
@@ -33,9 +36,10 @@ namespace PrinterAgentService
         private readonly string _agentId;
         private string _location;
 
-        public Worker(ILogger<Worker> logger)
+        public Worker(ILogger<Worker> logger, IServiceProvider services)
         {
             _logger = logger;
+            _services = services;
             // Shared handler that ignores certificate errors (development only)
             _handler = new HttpClientHandler
             {
@@ -69,6 +73,7 @@ namespace PrinterAgentService
             }
 
             _logger.LogInformation("Agent initialized with ID: {AgentId}, Location: {Location}", _agentId, _location);
+            _services = services;
         }
 
         private void SaveAgentSettings()
@@ -178,6 +183,11 @@ namespace PrinterAgentService
 
             _hub = new HubConnectionBuilder()
                 .WithUrl(_hubUrl, options => options.HttpMessageHandlerFactory = _ => signalRHandler)
+                 .AddJsonProtocol(opts =>
+                 {
+                     opts.PayloadSerializerOptions.DefaultIgnoreCondition =
+                         System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+                 })
                 .WithAutomaticReconnect(new CustomRetryPolicy(MAX_RECONNECT_ATTEMPTS, RECONNECT_DELAY_MS))
                 .Build();
 
@@ -262,7 +272,27 @@ namespace PrinterAgentService
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+           
+
+
             _logger.LogInformation("Worker running at: {Time}", DateTimeOffset.Now);
+
+
+            // ——— SMOKE TEST START ———
+            using (var scope = _services.CreateScope())
+            {
+                var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                _logger.LogInformation(">> DB SMOKE TEST: Templates={Count1}, Sections={Count2}, Assignments={Count3}, QR={Count4}",
+                    ctx.PrintTemplates.Count(),
+                    ctx.TemplateSections.Count(),
+                    ctx.PrinterAssignments.Count(),
+                    ctx.InvoiceQR.Count());
+            }
+            // ——— SMOKE TEST END ———
+
+
+
+
 
             while (!stoppingToken.IsCancellationRequested)
             {

@@ -1,0 +1,136 @@
+﻿@{
+    ViewData["Title"] = "Templates";
+}
+<h1>Print Templates</h1>
+
+<div class="mb-3">
+    <button id="btnAddTpl" class="btn btn-primary">New Template</button>
+</div>
+
+<table class="table table-bordered" id="tplTable">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>Name</th>
+            <th>FileName</th>
+            <th>DataSourceType</th>
+            <th>CreatedAt</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<!-- Modal for Create/Edit -->
+<div class="modal fade" id="tplModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="tplForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Template</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="tplId" />
+                    <div class="mb-3">
+                        <label class="form-label">Name</label>
+                        <input type="text" id="tplName" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">FileName</label>
+                        <input type="text" id="tplFileName" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">DataSourceType</label>
+                        <input type="text" id="tplDataSource" class="form-control" required />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Save</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const apiBase = '/api/template';
+
+        function loadTemplates() {
+            axios.get(apiBase)
+                .then(res => {
+                    const tbody = document.querySelector('#tplTable tbody');
+                    tbody.innerHTML = '';
+                    res.data.forEach(t => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${t.id}</td>
+                            <td>${t.name}</td>
+                            <td>${t.fileName}</td>
+                            <td>${t.dataSourceType}</td>
+                            <td>${new Date(t.createdAt).toLocaleString()}</td>
+                            <td>
+                              <button class="btn btn-sm btn-warning edit" data-id="${t.id}">Edit</button>
+                              <button class="btn btn-sm btn-danger del" data-id="${t.id}">Delete</button>
+                            </td>`;
+                        tbody.appendChild(tr);
+                    });
+                })
+                .catch(err => {
+                    console.error("loadTemplates failed:", err);
+                });
+        }
+
+        function showModal(template = {}) {
+            document.getElementById('tplId').value = template.id || '';
+            document.getElementById('tplName').value = template.name || '';
+            document.getElementById('tplFileName').value = template.fileName || '';
+            document.getElementById('tplDataSource').value = template.dataSourceType || '';
+            new bootstrap.Modal(document.getElementById('tplModal')).show();
+        }
+
+        // events
+        document.getElementById('btnAddTpl').addEventListener('click', () => showModal());
+
+        document.querySelector('#tplTable').addEventListener('click', ev => {
+            if (ev.target.matches('.edit')) {
+                const id = ev.target.dataset.id;
+                axios.get(`${apiBase}/${id}`)
+                    .then(res => showModal(res.data))
+                    .catch(err => console.error("Get template failed:", err));
+            }
+            if (ev.target.matches('.del')) {
+                const id = ev.target.dataset.id;
+                if (confirm('Delete this template?')) {
+                    axios.delete(`${apiBase}/${id}`)
+                        .then(loadTemplates)
+                        .catch(err => console.error("Delete template failed:", err));
+                }
+            }
+        });
+
+        document.getElementById('tplForm').addEventListener('submit', ev => {
+            ev.preventDefault();
+            const id  = document.getElementById('tplId').value;
+            const obj = {
+                name: document.getElementById('tplName').value,
+                fileName: document.getElementById('tplFileName').value,
+                dataSourceType: document.getElementById('tplDataSource').value
+            };
+            const req = id
+                ? axios.put(`${apiBase}/${id}`, obj)
+                : axios.post(apiBase, obj);
+            req
+                .then(() => {
+                    new bootstrap.Modal(document.getElementById('tplModal')).hide();
+                    loadTemplates();
+                })
+                .catch(err => console.error("Save template failed:", err));
+        });
+
+        // initial load
+        loadTemplates();
+    </script>
+}

@@ -8,6 +8,6 @@
         public string DataSourceType { get; set; }
         public DateTime CreatedAt { get; set; }
 
-        public ICollection<TemplateSection> Sections { get; set; }
+        public ICollection<TemplateSection>? Sections { get; set; }
     }
 }

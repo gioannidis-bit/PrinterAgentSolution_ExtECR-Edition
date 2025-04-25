@@ -4,6 +4,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.EntityFrameworkCore;
 using PrinterAgent.Core.Data;
 using System;
+using PrinterAgent.Core.Services;
+using PrinterAgentService.Services;
 
 namespace PrinterAgentService
 {
@@ -40,8 +42,11 @@ namespace PrinterAgentService
                     services.AddDbContext<AppDbContext>(options =>
                         options.UseSqlServer(connString));
 
-                    // Η υπάρχουσα Hosted Service
-                    services.AddHostedService<Worker>();
+                    services.AddScoped<ITemplateService, TemplateService>();
+
+
+                    services.AddSingleton<Worker>();
+                    services.AddHostedService(sp => sp.GetRequiredService<Worker>());
                 });
     }
 }

@@ -1,0 +1,201 @@
+﻿@{
+    ViewData["Title"] = "Sections & Assignments";
+}
+<h1>Sections & Printer Assignments</h1>
+
+<div class="mb-3">
+    <select id="selTemplate" class="form-select w-25"></select>
+    <button id="btnAddSec" class="btn btn-primary ms-2">New Section</button>
+</div>
+
+<table class="table table-sm" id="secTable">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>Name</th>
+            <th>Order</th>
+            <th>Printers</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<!-- Section Modal -->
+<div class="modal fade" id="secModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="secForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Section</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="secId" />
+                    <div class="mb-3">
+                        <label class="form-label">Name</label>
+                        <input type="text" id="secName" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Order</label>
+                        <input type="number" id="secOrder" class="form-control" required />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Save Section</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Assignment Modal -->
+<div class="modal fade" id="assnModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="assnForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Printer Assignment</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="assnSecId" />
+                    <div class="mb-3">
+                        <label class="form-label">Printer Name</label>
+                        <input type="text" id="assnPrinter" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Paper Size</label>
+                        <input type="text" id="assnPaperSize" class="form-control" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Save Assignment</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const tplApi = '/api/template';
+        let currentTemplateId = null;
+
+        async function loadTemplatesToSelect() {
+            try {
+                const res = await axios.get(tplApi);
+                const sel = document.getElementById('selTemplate');
+                sel.innerHTML = '<option value="">-- select template --</option>';
+                res.data.forEach(t => {
+                    sel.innerHTML += `<option value="${t.id}">${t.name}</option>`;
+                });
+            } catch (err) {
+                console.error("loadTemplatesToSelect failed:", err);
+            }
+        }
+
+        async function loadSections() {
+            if (!currentTemplateId) return;
+            try {
+                const rows = (await axios.get(`${tplApi}/${currentTemplateId}/sections`)).data;
+                const tbody = document.querySelector('#secTable tbody');
+                tbody.innerHTML = '';
+                for (let s of rows) {
+                    const printers = s.printers.map(p => p.printerName).join(', ');
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                      <td>${s.id}</td>
+                      <td>${s.name}</td>
+                      <td>${s.order}</td>
+                      <td>${printers}</td>
+                      <td>
+                        <button class="btn btn-sm btn-warning edit-sec" data-id="${s.id}">Edit</button>
+                        <button class="btn btn-sm btn-info add-assn" data-id="${s.id}">Assign</button>
+                        <button class="btn btn-sm btn-danger del-sec" data-id="${s.id}">Delete</button>
+                      </td>`;
+                    tbody.appendChild(tr);
+                }
+            } catch (err) {
+                console.error("loadSections failed:", err);
+            }
+        }
+
+        document.getElementById('selTemplate').addEventListener('change', e => {
+            currentTemplateId = e.target.value;
+            loadSections();
+        });
+
+        document.getElementById('btnAddSec').addEventListener('click', () => {
+            if (!currentTemplateId) return alert('Choose a template first');
+            document.getElementById('secId').value = '';
+            document.getElementById('secName').value = '';
+            document.getElementById('secOrder').value = '0';
+            new bootstrap.Modal(document.getElementById('secModal')).show();
+        });
+
+        document.querySelector('#secTable').addEventListener('click', async ev => {
+            const id = ev.target.dataset.id;
+            if (ev.target.matches('.del-sec')) {
+                if (confirm('Delete this section?')) {
+                    await axios.delete(`${tplApi}/${currentTemplateId}/sections/${id}`);
+                    loadSections();
+                }
+            }
+            if (ev.target.matches('.edit-sec')) {
+                const sec = (await axios.get(`${tplApi}/${currentTemplateId}/sections`))
+                              .data.find(x => x.id == id);
+                document.getElementById('secId').value = sec.id;
+                document.getElementById('secName').value = sec.name;
+                document.getElementById('secOrder').value = sec.order;
+                new bootstrap.Modal(document.getElementById('secModal')).show();
+            }
+            if (ev.target.matches('.add-assn')) {
+                document.getElementById('assnSecId').value = id;
+                document.getElementById('assnPrinter').value = '';
+                document.getElementById('assnPaperSize').value = '';
+                new bootstrap.Modal(document.getElementById('assnModal')).show();
+            }
+        });
+
+        document.getElementById('secForm').addEventListener('submit', async ev => {
+            ev.preventDefault();
+            const id   = document.getElementById('secId').value;
+            const body = {
+                name:  document.getElementById('secName').value,
+                order: +document.getElementById('secOrder').value
+            };
+            try {
+                if (id)
+                    await axios.put(`${tplApi}/${currentTemplateId}/sections/${id}`, body);
+                else
+                    await axios.post(`${tplApi}/${currentTemplateId}/sections`, body);
+                new bootstrap.Modal(document.getElementById('secModal')).hide();
+                loadSections();
+            } catch (err) {
+                console.error("save section failed:", err);
+            }
+        });
+
+        document.getElementById('assnForm').addEventListener('submit', async ev => {
+            ev.preventDefault();
+            const sectionId = document.getElementById('assnSecId').value;
+            const body = {
+                printerName: document.getElementById('assnPrinter').value,
+                paperSize:   document.getElementById('assnPaperSize').value
+            };
+            try {
+                await axios.post(`${tplApi}/${currentTemplateId}/sections/${sectionId}/assignments`, body);
+                new bootstrap.Modal(document.getElementById('assnModal')).hide();
+                loadSections();
+            } catch (err) {
+                console.error("save assignment failed:", err);
+            }
+        });
+
+        // initial
+        loadTemplatesToSelect();
+    </script>
+}

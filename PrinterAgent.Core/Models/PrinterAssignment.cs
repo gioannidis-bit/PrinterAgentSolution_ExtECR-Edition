@@ -1,4 +1,6 @@
-﻿namespace PrinterAgent.Core.Models
+﻿using System.Text.Json.Serialization;
+
+namespace PrinterAgent.Core.Models
 {
     public class PrinterAssignment
     {
@@ -7,6 +9,7 @@
         public string PrinterName { get; set; }
         public string PaperSize { get; set; }
 
-        public TemplateSection TemplateSection { get; set; }
+        [JsonIgnore]
+        public TemplateSection? TemplateSection { get; set; }
     }
 }

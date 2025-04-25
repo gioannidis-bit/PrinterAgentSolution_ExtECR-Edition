@@ -1,4 +1,6 @@
-﻿namespace PrinterAgent.Core.Models
+﻿using System.Text.Json.Serialization;
+
+namespace PrinterAgent.Core.Models
 {
     public class TemplateSection
     {
@@ -7,7 +9,8 @@
         public string Name { get; set; }         // π.χ. "Header", "Body", "Footer"
         public int Order { get; set; }
 
-        public PrintTemplate PrintTemplate { get; set; }
-        public ICollection<PrinterAssignment> Printers { get; set; }
+        [JsonIgnore] 
+        public PrintTemplate? PrintTemplate { get; set; }
+        public ICollection<PrinterAssignment> Printers { get; set; } = new List<PrinterAssignment>();
     }
 }

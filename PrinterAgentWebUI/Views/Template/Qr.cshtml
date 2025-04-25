@@ -1,0 +1,37 @@
+﻿@{
+    ViewData["Title"] = "Invoice QR";
+}
+<h1>Invoice QR</h1>
+
+<div class="input-group w-25 mb-3">
+    <input type="number" id="invoiceId" class="form-control" placeholder="Invoice ID" />
+    <button id="btnFetchQr" class="btn btn-primary">Get/Create QR</button>
+</div>
+
+<div id="qrResult"></div>
+
+@section Scripts {
+    <script>
+        document.getElementById('btnFetchQr').addEventListener('click', async () => {
+            const id = document.getElementById('invoiceId').value;
+            if (!id) return alert('Enter invoice ID');
+
+            try {
+                // πρώτα δοκιμάζουμε να πάρουμε υπάρχον QR
+                let resp = await axios.get(`/api/template/invoiceqr/${id}`);
+                let qr = resp.data;
+                if (!qr) {
+                    // αν δεν υπάρχει, δημιουργούμε νέο
+                    resp = await axios.post('/api/template/invoiceqr', { invoiceId: +id, url: '' });
+                    qr = resp.data;
+                }
+                document.getElementById('qrResult').innerHTML =
+                    `<p>QR URL: <a href="${qr.url}" target="_blank">${qr.url}</a></p>
+                     <img src="${qr.url}" alt="QR Code" class="img-fluid" />`;
+            } catch (err) {
+                console.error("fetch/create InvoiceQR failed:", err);
+                alert("Error fetching or creating QR. See console.");
+            }
+        });
+    </script>
+}
