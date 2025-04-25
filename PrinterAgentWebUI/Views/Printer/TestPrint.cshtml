@@ -1,0 +1,136 @@
+﻿@using PrinterAgent.WebUI.Controllers;
+@{
+    ViewBag.Title = "Send Test Print";
+    var selectedAgentId = ViewBag.SelectedAgentId ?? "";
+    var selectedPrinterName = ViewBag.SelectedPrinterName ?? "";
+}
+
+<hr />
+<h3>Send Test Print</h3>
+
+<form asp-controller="Printer" asp-action="TestPrint" method="post" novalidate>
+    @Html.AntiForgeryToken()
+
+    <div class="mb-3">
+        <label for="agentId" class="form-label">Select Agent</label>
+        <select id="agentId" name="agentId" class="form-select" required>
+            <option value="">— Select Agent —</option>
+            @if (ViewBag.Agents != null)
+            {
+                foreach (var agent in (List<AgentData>)ViewBag.Agents)
+                {
+                    var displayText = agent.MachineName;
+                    if (!string.IsNullOrEmpty(agent.Location))
+                    {
+                        displayText += $" ({agent.Location})";
+                    }
+                    var isSelected = agent.AgentId == (string)ViewBag.SelectedAgentId;
+                    var selectedAttr = isSelected ? " selected" : "";
+                    @:<option value="@agent.AgentId"@selectedAttr>@displayText</option>
+                }
+            }
+        </select>
+        <small class="form-text text-muted">Μόνο οι online agents εμφανίζονται στη λίστα.</small>
+    </div>
+
+    <div class="mb-3">
+        <label for="printerName" class="form-label">Select Printer</label>
+        <select id="printerName" name="printerName" class="form-select" required>
+            <option value="">-- Select Printer --</option>
+            <!-- Θα συμπληρωθεί δυναμικά μέσω JavaScript -->
+        </select>
+    </div>
+
+    <div class="mb-3">
+        <label for="documentContent" class="form-label">Document Content (Plain Text)</label>
+        <textarea id="documentContent" name="documentContent"
+                  class="form-control" rows="6" required
+                  placeholder="Enter plain text to print…"></textarea>
+    </div>
+
+    <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" id="landscape" name="landscape" value="true" />
+        <label class="form-check-label" for="landscape">Landscape Orientation</label>
+    </div>
+
+    <div class="mb-3">
+        <label for="paperSize" class="form-label">Paper Size</label>
+        <select id="paperSize" name="paperSize" class="form-select" required>
+            <option value="A4">A4</option>
+            <option value="Letter">Letter</option>
+        </select>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Send Test Print</button>
+</form>
+
+@if (ViewBag.Message != null)
+{
+    <div class="alert alert-@(ViewBag.MessageType ?? "info") mt-3">
+        <strong>@ViewBag.Message</strong>
+    </div>
+}
+
+@section Scripts {
+    <script>
+        $(function() {
+            var printersByAgent = {};
+
+            // 1) Load all available printers
+            function loadPrinterData() {
+                $.getJSON('/api/printerdata', function(agents) {
+                    printersByAgent = {};
+                    
+                    agents.forEach(function(agent) {
+                        if (agent.isOnline && agent.printers) {
+                            printersByAgent[agent.agentId] = agent.printers;
+                        }
+                    });
+                    
+                    // Αν έχει επιλεγεί ήδη agent, φορτώνουμε τους εκτυπωτές του
+                    updatePrinters($('#agentId').val());
+                });
+            }
+
+            // 2) Update printer dropdown when agent changes
+            function updatePrinters(agentId) {
+                var printers = printersByAgent[agentId] || [];
+                var $printerSelect = $('#printerName').empty()
+                    .append('<option value="">-- Select Printer --</option>');
+                
+                printers.forEach(function(printer) {
+                    var isSelected = printer.name === '@selectedPrinterName';
+                    var statusText = printer.status === 'Online' ? ' (Online)' : ' (Offline)';
+                    var optionText = printer.name + statusText;
+                    
+                    $('<option>')
+                        .val(printer.name)
+                        .text(optionText)
+                        .prop('selected', isSelected)
+                        .appendTo($printerSelect);
+                });
+            }
+
+            // 3) When agent changes, update printers
+            $('#agentId').on('change', function() {
+                updatePrinters(this.value);
+            });
+
+            // 4) Initial load
+            loadPrinterData();
+            
+            // 5) Set initial values if provided
+            if ('@selectedAgentId' !== '') {
+                $('#agentId').val('@selectedAgentId');
+                
+                // Περιμένουμε λίγο για να φορτωθούν τα δεδομένα πριν επιλέξουμε τον εκτυπωτή
+                setTimeout(function() {
+                    updatePrinters('@selectedAgentId');
+                    if ('@selectedPrinterName' !== '') {
+                        $('#printerName').val('@selectedPrinterName');
+                    }
+                }, 500);
+            }
+        });
+    </script>
+}
